@@ -66,18 +66,14 @@ class Population:
 
         print('Seeding complete.')
 
-        return
-
     def update_fitness(self):
         """ Update fitness of every candidate/chromosome. """
         for candidate in self.candidates:
             candidate.update_fitness()
-        return
 
     def sort(self):
         """ Sort the population based on fitness. """
         self.candidates.sort(key=cmp_to_key(self.sort_fitness))
-        return
 
     @staticmethod
     def sort_fitness(x, y):
@@ -96,7 +92,6 @@ class Candidate:
     def __init__(self):
         self.values = numpy.zeros((nd, nd), dtype=int)
         self.fitness = 0.0
-        return
 
     def update_fitness(self):
         """ The fitness of a candidate solution is determined by how close it is to being the actual solution
@@ -144,10 +139,9 @@ class Candidate:
         if int(row_sum) == 1 and int(column_sum) == 1 and int(block_sum) == 1:
             fitness = 1.0
         else:
-            fitness = column_sum * block_sum
+            fitness = column_sum * block_sum * row_sum
 
         self.fitness = fitness
-        return
 
     def mutate(self, mutation_rate, given):
         """ Mutate a candidate by picking a row, and then picking two values within that row to swap. """
@@ -190,7 +184,6 @@ class Given(Candidate):
     def __init__(self, values):
         super().__init__()
         self.values = values
-        return
 
     def is_row_duplicate(self, row, value):
         """ Check whether there is a duplicate of a fixed/given value in a row. """
@@ -233,11 +226,10 @@ class Tournament:
     one is selected.
     """
 
-    def __init__(self):
-        return
+    def __init__(self, selection_rate):
+        self.sr = selection_rate
 
-    @staticmethod
-    def compete(candidates):
+    def compete(self, candidates):
         """ Pick 2 random candidates from the population and get them to compete against each other. """
         c1 = candidates[random.randint(0, len(candidates) - 1)]
         c2 = candidates[random.randint(0, len(candidates) - 1)]
@@ -252,11 +244,10 @@ class Tournament:
             fittest = c2
             weakest = c1
 
-        selection_rate = 0.85
         r = random.uniform(0, 1.1)
         while r > 1:  # Outside [0, 1] boundary. Choose another.
             r = random.uniform(0, 1.1)
-        if r < selection_rate:
+        if r < self.sr:
             return fittest
         else:
             return weakest
@@ -268,7 +259,7 @@ class CycleCrossover:
      (see e.g. A. E. Eiben, J. E. Smith. Introduction to Evolutionary Computing. Springer, 2007). """
 
     def __init__(self):
-        return
+        pass
 
     def crossover(self, parent1, parent2, crossover_rate):
         """ Create two new child candidates by crossing over parent genes. """
@@ -363,11 +354,13 @@ class CycleCrossover:
 class Sudoku:
     """ Solves a given Sudoku puzzle using a genetic algorithm. """
 
-    def __init__(self, number_of_candidates, number_of_elites, number_of_generations, number_of_mutations):
+    def __init__(self, number_of_candidates, number_of_elites, number_of_generations, number_of_mutations,
+                 selection_rate):
         self.nc = number_of_candidates
         self.ne = number_of_elites
         self.ng = number_of_generations
         self.nm = number_of_mutations
+        self.sr = selection_rate
 
         self.given = None
         self.population = None
@@ -377,17 +370,15 @@ class Sudoku:
         with open(path, 'r') as f:
             values = numpy.loadtxt(f).reshape((nd, nd)).astype(int)
             self.given = Given(values)
-        return
 
     @staticmethod
     def save(path, solution):
         # Save a configuration to a file.
         with open(path, 'w') as f:
             numpy.savetxt(f, solution.values.reshape(nd * nd), fmt='%d')
-        return
 
     def solve(self):
-        # Mutation parameters.
+        # Mutation parameters
         phi = 0
         sigma = 1
         mutation_rate = 0.06
@@ -396,13 +387,13 @@ class Sudoku:
         self.population = Population()
         self.population.seed(self.nc, self.given)
 
-        # For up to 10000 generations...
         stale = 0
         for generation in range(0, self.ng):
             print(f'Generation {generation}')
 
             # Check for a solution.
             best_fitness = 0.0
+
             for c in range(0, self.nc):
                 fitness = self.population.candidates[c].fitness
                 if fitness == 1:
@@ -430,7 +421,7 @@ class Sudoku:
             # Create the rest of the candidates.
             for count in range(self.ne, self.nc, 2):
                 # Select parents from population via a tournament.
-                t = Tournament()
+                t = Tournament(self.sr)
                 parent1 = t.compete(self.population.candidates)
                 parent2 = t.compete(self.population.candidates)
 
